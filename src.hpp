@@ -681,6 +681,124 @@ private:
     };
 
 public:
+    enum Type {
+        JSON_OBJECT=N_OBJECT,
+        JSON_LIST=N_LIST,
+        JSON_STRING=N_STRING,
+        JSON_NUMBER=N_NUMBER,
+        JSON_BOOL=N_BOOL,
+    };
+
+    class iterator {
+    private:
+        Node* node;
+        std::vector<std::string> key;
+        unsigned int size;
+        unsigned int index;
+
+        class getClass {
+        public:
+            getClass(Node* node, std::vector<std::string>* key, unsigned int size, unsigned int index) : node(node), key(key), size(size), index(index) {}
+
+            operator char() {
+                if (node->type != N_STRING) {
+                    std::cerr << "cannot get char from non string iterator\n";
+                    exit(1);
+                }
+                if (index == size) {
+                    std::cerr << "cannot get char from end iterator\n";
+                    exit(1);
+                }
+                return node->value->str[index];
+            }
+
+            operator Json() {
+                if (node->type != N_LIST) {
+                    std::cerr << "cannot get Json from non list iterator\n";
+                    exit(1);
+                }
+                if (index == size) {
+                    std::cerr << "cannot get Json from end iterator\n";
+                    exit(1);
+                }
+                return node->value->list[index];
+            }
+
+            operator std::pair<std::string, Json>() {
+                if (node->type != N_OBJECT) {
+                    std::cerr << "cannot get pair from non object iterator\n";
+                    exit(1);
+                }
+                if (index == size) {
+                    std::cerr << "cannot get pair from end iterator\n";
+                    exit(1);
+                }
+                Json tmp(node->value->object[(*key)[index]]);
+                return {(*key)[index], tmp};
+            }
+
+        private:
+            Node* node;
+            std::vector<std::string>* key;
+            unsigned int size;
+            unsigned int index;
+        };
+
+    public:
+        iterator(Node* node, unsigned int index) : node(node), index(index) {
+            bool b = false;
+            if (node->type == N_OBJECT) {
+                b = true;
+                for (std::pair<std::string, Node*> n : node->value->object) {
+                    key.push_back(n.first);
+                    size = key.size();
+                }
+            } else if (node->type == N_LIST) {
+                b = true;
+                size = node->value->list.size();
+            } else if (node->type == N_STRING) {
+                b = true;
+                size = node->value->str.size();
+            }
+            if (!b) {
+                std::cerr << "cannot create iterator, invalid type\n";
+                exit(1);
+            }
+            if (b && index > size) {
+                std::cerr << "invalid index " << index << " for Json::iterator with size " << size << "\n";
+                exit(1);
+            }
+        }
+
+        bool operator==(iterator& other) {
+            return (node==other.node && index==other.index);
+        }
+
+        bool operator!=(iterator& other) {
+            return !(*this==other);
+        }
+
+        void operator++() {
+            if (index >= size) {
+                std::cerr << "cannot increment end iterator\n";
+                exit(1);
+            }
+            index++;
+        }
+
+        void operator--() {
+            if (index == 0) {
+                std::cerr << "cannot decrement begin iterator\n";
+                exit(1);
+            }
+            index--;
+        }
+
+        getClass operator*() {
+            return {node, &key, size, index};
+        }
+    };
+
     class JsonValue {
     public:
         JsonValue(Node* n) {
@@ -730,6 +848,47 @@ public:
             node->save = true;
             node->type = tmp.node->type;
             node->value = tmp.node->value;
+        }
+
+        Type type() {
+            return (Type)node->type;
+        }
+
+        unsigned int size() {
+            switch (node->type) {
+                case N_STRING:
+                    return node->value->str.size();
+                break;
+                case N_LIST:
+                    return node->value->list.size();
+                break;
+                case N_OBJECT:
+                    return node->value->object.size();
+                break;
+                default:
+                    std::cerr << "size is not available for bool and number\n";
+                    exit(1);
+            }
+        }
+
+        std::vector<std::string> keys() {
+            if (node->type != N_OBJECT) {
+                std::cerr << "keys is only available for objects\n";
+                exit(1);
+            }
+            std::vector<std::string> ret;
+            for (std::pair<std::string, Node*> n : node->value->object) {
+                ret.push_back(n.first);
+            }
+            return ret;
+        }
+
+        iterator begin() {
+            return {node, 0};
+        }
+
+        iterator end() {
+            return {node, size()};
         }
 
         operator Json() {
@@ -794,13 +953,46 @@ public:
         free(tmp);
     }
 
-    enum Type {
-        JSON_OBJECT=N_OBJECT,
-        JSON_LIST=N_LIST,
-        JSON_STRING=N_STRING,
-        JSON_NUMBER=N_NUMBER,
-        JSON_BOOL=N_BOOL,
-    };
+    Type type() {
+        return (Type)node->type;
+    }
+
+    unsigned int size() {
+        switch (node->type) {
+            case N_STRING:
+                return node->value->str.size();
+            break;
+            case N_LIST:
+                return node->value->list.size();
+            break;
+            case N_OBJECT:
+                return node->value->object.size();
+            break;
+            default:
+                std::cerr << "size is not available for bool and number\n";
+                exit(1);
+        }
+    }
+
+    std::vector<std::string> keys() {
+        if (node->type != N_OBJECT) {
+            std::cerr << "keys is only available for objects\n";
+            exit(1);
+        }
+        std::vector<std::string> ret;
+        for (std::pair<std::string, Node*> n : node->value->object) {
+            ret.push_back(n.first);
+        }
+        return ret;
+    }
+
+    iterator begin() {
+        return {node, 0};
+    }
+
+    iterator end() {
+        return {node, size()};
+    }
 
     ~Json() {
         node->save = false;
