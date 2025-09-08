@@ -775,7 +775,7 @@ public:
         }
 
         bool operator!=(iterator& other) {
-            return !(*this==other);
+            return !(operator==(other));
         }
 
         void operator++() {
@@ -891,6 +891,178 @@ public:
             return {node, size()};
         }
 
+        void push_back(char c) {
+            if (node->type != N_STRING) {
+                std::cerr << "cannot append char to non string\n";
+                exit(1);
+            }
+            node->value->str.push_back(c);
+        }
+
+        void push_back(std::string str) {
+            if (node->type != N_STRING) {
+                std::cerr << "cannot append string to non string\n";
+                exit(1);
+            }
+            for (char c : str) {
+                node->value->str.push_back(c);
+            }
+        }
+
+        void push_back(Json json) {
+            if (node->type != N_LIST) {
+                std::cerr << "cannot append item to non list\n";
+                exit(1);
+            }
+            node->value->list.push_back(copy(json.node));
+        }
+
+        template<typename type>
+        void push_back(type v) {
+            if (node->type != N_LIST) {
+                std::cerr << "cannot append item to non list\n";
+                exit(1);
+            }
+            createClass tmp(v);
+            node->value->list.push_back(tmp.node);
+        }
+
+        void insert(unsigned int index, char c) {
+            if (node->type != N_STRING) {
+                std::cerr << "cannot insert char into non string\n";
+                exit(1);
+            }
+            std::string tmp;
+            tmp.push_back(c);
+            node->value->str.insert(index, tmp);
+        }
+
+        void insert(unsigned int index, std::string str) {
+            switch (node->type) {
+                case N_STRING:
+                    node->value->str.insert(index, str);
+                break;
+                case N_LIST: {
+                    createClass tmp(str);
+                    std::vector<Node*>::iterator it(&node->value->list[index]);
+                    node->value->list.insert(it, tmp.node);
+                }
+                break;
+                default:
+                    std::cerr << "cannot insert string\n";
+                    exit(1);
+            }
+        }
+
+        void insert(unsigned int index, Json json) {
+            switch (node->type) {
+                case N_LIST: {
+                    std::vector<Node*>::iterator tmp(&node->value->list[index]);
+                    node->value->list.insert(tmp, copy(json.node));
+                }
+                break;
+                default:
+                    std::cerr << "cannot inset json\n";
+                    exit(1);
+            }
+        }
+
+        template<typename type>
+        void insert(unsigned int index, type value) {
+            switch (node->type) {
+                case N_LIST: {
+                    createClass tmp(value);
+                    std::vector<Node*>::iterator it(&node->value->list[index]);
+                    node->value->list.insert(it, tmp.node);
+                }
+                break;
+                default:
+                    std::cerr << "cannot insert value\n";
+                    exit(1);
+            }
+        }
+
+        bool insert(std::string key, Json json) {
+            if (node->type != N_OBJECT) {
+                std::cerr << "cannot insert Json into object\n";
+                exit(1);
+            }
+            return node->value->object.insert({key, copy(json.node)}).second;
+        }
+
+        template<typename type>
+        bool insert(std::string key, type value) {
+            if (node->type != N_OBJECT) {
+                std::cerr << "cannot insert value into object\n";
+                exit(1);
+            }
+            createClass tmp(value);
+            return node->value->object.insert({key, tmp.node}).second;
+        }
+
+        void erase(unsigned int index) {
+            switch (node->type) {
+                case N_STRING:
+                    if (index >= node->value->str.size()) {
+                        std::cerr << "cannot erase char, index out of bounds\n";
+                        exit(1);
+                    }
+                    node->value->str.erase(index, 1);
+                break;
+                case N_LIST: {
+                    if (index >= node->value->list.size()) {
+                        std::cerr << "cannot erase value, index out of bounds\n";
+                        exit(1);
+                    }
+                    node->value->list[index]->~Node();
+                    std::vector<Node*>::iterator tmp(&node->value->list[index]);
+                    node->value->list.erase(tmp);
+                }
+                break;
+                default:
+                    "cannot erase value, invalid type\n";
+                    exit(1);
+            }
+        }
+
+        void erase(unsigned int first, unsigned int last) {
+            switch (node->type) {
+                case N_STRING:
+                    if (first >= node->value->str.size() || last > node->value->str.size() || first >= last) {
+                        std::cerr << "cannot erase chars, indecies invalid\n";
+                        exit(1);
+                    }
+                    node->value->str.erase(first, last-first);
+                break;
+                case N_LIST: {
+                    if (first >= node->value->list.size() || last > node->value->list.size() || first >= last) {
+                        std::cerr << "cannot erase value, indecies invalid\n";
+                        exit(1);
+                    }
+                    delete node->value->list[first];
+                    std::vector<Node*>::iterator tmp(&node->value->list[first]);
+                    node->value->list.erase(tmp);
+                }
+                break;
+                default:
+                    "cannot erase value, invalid type\n";
+                    exit(1);
+            }
+        }
+
+        void erase(std::string key) {
+            if (node->type != N_OBJECT) {
+                std::cerr << "cannot erase value, from non object\n";
+                exit(1);
+            }
+            if (node->value->object.find(key) == node->value->object.end()) {
+                std::cerr << "cannot erase value, invalid key\n";
+                exit(1);
+            }
+            delete node->value->object[key];
+            node->value->object.erase(key);
+        }
+
         operator Json() {
             return node;
         }
@@ -992,6 +1164,178 @@ public:
 
     iterator end() {
         return {node, size()};
+    }
+
+    void push_back(char c) {
+        if (node->type != N_STRING) {
+            std::cerr << "cannot append char to non string\n";
+            exit(1);
+        }
+        node->value->str.push_back(c);
+    }
+
+    void push_back(std::string str) {
+        if (node->type != N_STRING) {
+            std::cerr << "cannot append string to non string\n";
+            exit(1);
+        }
+        for (char c : str) {
+            node->value->str.push_back(c);
+        }
+    }
+
+    void push_back(Json json) {
+        if (node->type != N_LIST) {
+            std::cerr << "cannot append item to non list\n";
+            exit(1);
+        }
+        node->value->list.push_back(copy(json.node));
+    }
+
+    template<typename type>
+    void push_back(type v) {
+        if (node->type != N_LIST) {
+            std::cerr << "cannot append item to non list\n";
+            exit(1);
+        }
+        createClass tmp(v);
+        node->value->list.push_back(tmp.node);
+    }
+
+    void insert(unsigned int index, char c) {
+        if (node->type != N_STRING) {
+            std::cerr << "cannot insert char into non string\n";
+            exit(1);
+        }
+        std::string tmp;
+        tmp.push_back(c);
+        node->value->str.insert(index, tmp);
+    }
+
+    void insert(unsigned int index, std::string str) {
+        switch (node->type) {
+            case N_STRING:
+                node->value->str.insert(index, str);
+            break;
+            case N_LIST: {
+                createClass tmp(str);
+                std::vector<Node*>::iterator it(&node->value->list[index]);
+                node->value->list.insert(it, tmp.node);
+            }
+            break;
+            default:
+                std::cerr << "cannot insert string\n";
+                exit(1);
+        }
+    }
+
+    void insert(unsigned int index, Json json) {
+        switch (node->type) {
+            case N_LIST: {
+                std::vector<Node*>::iterator tmp(&node->value->list[index]);
+                node->value->list.insert(tmp, copy(json.node));
+            }
+            break;
+            default:
+                std::cerr << "cannot inset json\n";
+                exit(1);
+        }
+    }
+
+    template<typename type>
+    void insert(unsigned int index, type value) {
+        switch (node->type) {
+            case N_LIST: {
+                createClass tmp(value);
+                std::vector<Node*>::iterator it(&node->value->list[index]);
+                node->value->list.insert(it, tmp.node);
+            }
+            break;
+            default:
+                std::cerr << "cannot insert value\n";
+                exit(1);
+        }
+    }
+
+    bool insert(std::string key, Json json) {
+        if (node->type != N_OBJECT) {
+            std::cerr << "cannot insert Json into object\n";
+            exit(1);
+        }
+        return node->value->object.insert({key, copy(json.node)}).second;
+    }
+
+    template<typename type>
+    bool insert(std::string key, type value) {
+        if (node->type != N_OBJECT) {
+            std::cerr << "cannot insert value into object\n";
+            exit(1);
+        }
+        createClass tmp(value);
+        return node->value->object.insert({key, tmp.node}).second;
+    }
+
+    void erase(unsigned int index) {
+        switch (node->type) {
+            case N_STRING:
+                if (index >= node->value->str.size()) {
+                    std::cerr << "cannot erase char, index out of bounds\n";
+                    exit(1);
+                }
+                node->value->str.erase(index, 1);
+            break;
+            case N_LIST: {
+                if (index >= node->value->list.size()) {
+                    std::cerr << "cannot erase value, index out of bounds\n";
+                    exit(1);
+                }
+                node->value->list[index]->~Node();
+                std::vector<Node*>::iterator tmp(&node->value->list[index]);
+                node->value->list.erase(tmp);
+            }
+            break;
+            default:
+                "cannot erase value, invalid type\n";
+                exit(1);
+        }
+    }
+
+    void erase(unsigned int first, unsigned int last) {
+        switch (node->type) {
+            case N_STRING:
+                if (first >= node->value->str.size() || last > node->value->str.size() || first >= last) {
+                    std::cerr << "cannot erase chars, indecies invalid\n";
+                    exit(1);
+                }
+                node->value->str.erase(first, last-first);
+            break;
+            case N_LIST: {
+                if (first >= node->value->list.size() || last > node->value->list.size() || first >= last) {
+                    std::cerr << "cannot erase value, indecies invalid\n";
+                    exit(1);
+                }
+                delete node->value->list[first];
+                std::vector<Node*>::iterator tmp(&node->value->list[first]);
+                node->value->list.erase(tmp);
+            }
+            break;
+            default:
+                "cannot erase value, invalid type\n";
+                exit(1);
+        }
+    }
+
+    void erase(std::string key) {
+        if (node->type != N_OBJECT) {
+            std::cerr << "cannot erase value, from non object\n";
+            exit(1);
+        }
+        if (node->value->object.find(key) == node->value->object.end()) {
+            std::cerr << "cannot erase value, invalid key\n";
+            exit(1);
+        }
+        delete node->value->object[key];
+        node->value->object.erase(key);
     }
 
     ~Json() {
