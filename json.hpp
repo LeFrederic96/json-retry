@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <sstream>
 
 char me::Json::hexChars[23] = "0123456789abcdefABCDEF";
 unsigned int me::Json::g_id = 0;
@@ -166,6 +167,38 @@ void me::Json::JsonValue::operator=(Json json) {
     node->type = tmp->type;
     node->value = tmp->value;
     free(tmp);
+}
+
+void me::Json::JsonValue::operator+=(double v) {
+    if (node->type != N_NUMBER) {
+        std::cerr << "cannot add to non number\n";
+        exit(1);
+    }
+    node->value->number += v;
+}
+
+void me::Json::JsonValue::operator-=(double v) {
+    if (node->type != N_NUMBER) {
+        std::cerr << "cannot subtract from non number\n";
+        exit(1);
+    }
+    node->value->number -= v;
+}
+
+void me::Json::JsonValue::operator*=(double v) {
+    if (node->type != N_NUMBER) {
+        std::cerr << "cannot multiply non number\n";
+        exit(1);
+    }
+    node->value->number *= v;
+}
+
+void me::Json::JsonValue::operator/=(double v) {
+    if (node->type != N_NUMBER) {
+        std::cerr << "cannot divide non number\n";
+        exit(1);
+    }
+    node->value->number /= v;
 }
 
 me::Json::Type me::Json::JsonValue::type() {
@@ -410,6 +443,22 @@ bool me::Json::operator==(Json other) {
 
 void me::Json::operator=(Json json) {
     json_value = json;
+}
+
+void me::Json::operator+=(double v) {
+    json_value += v;
+}
+
+void me::Json::operator-=(double v) {
+    json_value -= v;
+}
+
+void me::Json::operator*=(double v) {
+    json_value *= v;
+}
+
+void me::Json::operator/=(double v) {
+    json_value /= v;
 }
 
 me::Json::Type me::Json::type() {

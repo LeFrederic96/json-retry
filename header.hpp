@@ -130,6 +130,14 @@ public:
             node->value = tmp.node->value;
         }
 
+        void operator+=(double v);
+
+        void operator-=(double v);
+
+        void operator*=(double v);
+
+        void operator/=(double v);
+
         Type type();
 
         unsigned int size();
@@ -257,6 +265,14 @@ public:
     }
 
     void operator=(Json json);
+
+    void operator+=(double v);
+
+    void operator-=(double v);
+
+    void operator*=(double v);
+
+    void operator/=(double v);
 
     Type type();
 

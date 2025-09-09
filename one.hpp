@@ -133,6 +133,14 @@ public:
             node->value = tmp.node->value;
         }
 
+        void operator+=(double v);
+
+        void operator-=(double v);
+
+        void operator*=(double v);
+
+        void operator/=(double v);
+
         Type type();
 
         unsigned int size();
@@ -260,6 +268,14 @@ public:
     }
 
     void operator=(Json json);
+
+    void operator+=(double v);
+
+    void operator-=(double v);
+
+    void operator*=(double v);
+
+    void operator/=(double v);
 
     Type type();
 
@@ -661,6 +677,38 @@ void me::Json::JsonValue::operator=(Json json) {
     free(tmp);
 }
 
+void me::Json::JsonValue::operator+=(double v) {
+    if (node->type != N_NUMBER) {
+        std::cerr << "cannot add to non number\n";
+        exit(1);
+    }
+    node->value->number += v;
+}
+
+void me::Json::JsonValue::operator-=(double v) {
+    if (node->type != N_NUMBER) {
+        std::cerr << "cannot subtract from non number\n";
+        exit(1);
+    }
+    node->value->number -= v;
+}
+
+void me::Json::JsonValue::operator*=(double v) {
+    if (node->type != N_NUMBER) {
+        std::cerr << "cannot multiply non number\n";
+        exit(1);
+    }
+    node->value->number *= v;
+}
+
+void me::Json::JsonValue::operator/=(double v) {
+    if (node->type != N_NUMBER) {
+        std::cerr << "cannot divide non number\n";
+        exit(1);
+    }
+    node->value->number /= v;
+}
+
 me::Json::Type me::Json::JsonValue::type() {
     return (Type)node->type;
 }
@@ -903,6 +951,22 @@ bool me::Json::operator==(Json other) {
 
 void me::Json::operator=(Json json) {
     json_value = json;
+}
+
+void me::Json::operator+=(double v) {
+    json_value += v;
+}
+
+void me::Json::operator-=(double v) {
+    json_value -= v;
+}
+
+void me::Json::operator*=(double v) {
+    json_value *= v;
+}
+
+void me::Json::operator/=(double v) {
+    json_value /= v;
 }
 
 me::Json::Type me::Json::type() {
