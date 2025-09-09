@@ -9,6 +9,8 @@ namespace me {
 class Json {
 private:
     struct Node;
+    class getClass;
+    struct Token;
 
     enum NodeType {
         N_OBJECT,
@@ -16,21 +18,6 @@ private:
         N_STRING,
         N_NUMBER,
         N_BOOL,
-    };
-
-    struct NodeValue {
-        NodeValue(std::map<std::string, Node*>& object);
-        NodeValue(std::vector<Node*>& list);
-
-        std::vector<Node*> list;
-        std::map<std::string, Node*> object;
-    };
-
-    struct Node {
-        void destroy();
-        bool save;
-        NodeType type;
-        NodeValue* value;
     };
 
 public:
@@ -111,11 +98,35 @@ public:
 
     private:
         Node* node;
+        std::vector<std::string> key;
+        unsigned int size;
+        unsigned int index;
+
+        class iteratorGetClass {
+        public:
+            iteratorGetClass(Node* node, std::vector<std::string>* key, unsigned int size, unsigned int index);
+
+            operator char();
+
+            operator Json();
+
+            operator std::pair<std::string, Json>();
+
+        private:
+            Node* node;
+            std::vector<std::string>* key;
+            unsigned int size;
+            unsigned int index;
+        };
     };
 
     class JsonValue {
     public:
+        JsonValue();
+
         JsonValue(Node* n);
+
+        void set(Node*);
 
         JsonValue operator[](unsigned int index);
 
@@ -270,12 +281,84 @@ public:
         return value.insert(key, value);
     }
 
+    ~Json();
+
 private:
+    static char hexChars[23];
+    std::vector<Token>* tokens;
+    unsigned int i = 0;
+    static unsigned int g_id;
     Node* node;
     JsonValue value;
 
+    enum TokenType {
+        T_COPEN,
+        T_CCLOSE,
+        T_BOPEN,
+        T_BCLOSE,
+        T_STRING,
+        T_NUMBER,
+        T_COMMA,
+        T_BOOL,
+        T_COLON,
+    };
+
+    struct TokenValue {
+        TokenValue();
+        TokenValue(bool b);
+        TokenValue(double number);
+        TokenValue(std::string& str);
+
+        bool b;
+        double number;
+        std::string str;
+    };
+
+    struct Token {
+        TokenType type;
+        TokenValue value;
+    };
+
+    struct NodeValue {
+        NodeValue();
+        NodeValue(std::map<std::string, Node*>& object);
+        NodeValue(std::vector<Node*>& list);
+        NodeValue(std::string& str);
+        NodeValue(double number);
+        NodeValue(bool b);
+
+        std::map<std::string, Node*> object;
+        std::vector<Node*> list;
+        std::string str;
+        double number;
+        bool b;
+        bool save = false;
+    };
+
+    struct Node {
+        void destroy();
+
+        ~Node();
+
+        NodeType type;
+        NodeValue* value;
+        bool destroyed;
+        bool save;
+        int id;
+    };
+
     class getClass {
     public:
+        getClass(Node* node);
+
+        operator bool();
+
+        operator double();
+
+        operator int();
+
+        operator std::string();
+
         template<typename type>
         operator std::vector<type>() {
             if (node->type != N_LIST) {
@@ -303,10 +386,23 @@ private:
             }
             return ret;
         }
+
+    private:
+        Node* node;
     };
 
     class createClass {
     public:
+        Node* node;
+
+        createClass(bool b);
+
+        createClass(int number);
+
+        createClass(double number);
+
+        createClass(std::string str);
+
         template<typename type>
         createClass(std::vector<type> vector) {
             std::vector<Node*> ret;
@@ -326,12 +422,28 @@ private:
             }
             node = makeNode(N_OBJECT, {ret});
         }
-    private:
-        Node* node;
     };
+
+    char get_char(std::string str, int base);
+
+    double get_number(std::string& str, int base);
+
+    void tokenize(std::string& str, std::vector<Token>& tokens);
 
     static Node* makeNode(NodeType type, NodeValue value);
 
-    Json(Node*);
+    TokenValue match(TokenType type, std::string str);
+
+    Node* parse();
+
+    static std::string hex(unsigned char c);
+
+    static std::string prep(std::string str);
+
+    static std::string str(Node* node, std::string indent);
+
+    static Node* copy(Node* node);
+
+    Json(Node* node);
 };
 }
