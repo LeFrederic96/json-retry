@@ -30,8 +30,9 @@ public:
     class iterator {
     private:
         class iteratorGetClass;
+
     public:
-        iterator(Node* node, unsigned int index);
+        iterator(Node* node, unsigned long index);
 
         bool operator==(iterator& other);
 
@@ -43,15 +44,44 @@ public:
 
         iteratorGetClass operator*();
 
+        template<typename type>
+        type get() {
+            if (_index >= size) {
+                std::cerr << "cannot get value from iterator\n";
+                exit(1);
+            }
+            switch (node->type) {
+                case N_STRING:
+                    return node->value->str[_index];
+                break;
+                case N_LIST: {
+                    getClass tmp(node->value->list[_index]);
+                    return tmp;
+                }
+                break;
+                case N_OBJECT: {
+                    getClass tmp(node->value->object[_key[_index]]);
+                    return tmp;
+                }
+                break;
+            }
+            std::cerr << "Unreachable: me::Json::iterator::get\n";
+            exit(1);
+        }
+
+        size_t index();
+
+        std::string key();
+
     private:
         Node* node;
-        std::vector<std::string> key;
-        unsigned int size;
-        unsigned int index;
+        std::vector<std::string> _key;
+        unsigned long size;
+        unsigned long _index;
 
         class iteratorGetClass {
         public:
-            iteratorGetClass(Node* node, std::vector<std::string>* key, unsigned int size, unsigned int index);
+            iteratorGetClass(Node* node, std::vector<std::string>* key, unsigned long size, unsigned long index);
 
             operator char();
 
@@ -69,11 +99,17 @@ public:
 
     class JsonValue {
     public:
+        JsonValue();
+
         JsonValue(Node* n);
+
+        void set(Node* n);
 
         JsonValue operator[](unsigned int index);
 
         JsonValue operator[](std::string key);
+
+        bool operator==(Json other);
 
         std::string str();
 
@@ -159,6 +195,37 @@ public:
 
         void erase(std::string key);
 
+        void clear();
+
+        bool empty();
+
+        size_t find(char c);
+
+        template<typename type>
+        iterator find(type value) {
+            createClass tmp(value);
+            switch (node->type) {
+                case N_LIST:
+                    for (unsigned long i = 0; i < node->value->list.size(); i++) {
+                        if (cmp(tmp.node, node->value->list[i])) {
+                            return {node, i};
+                        }
+                    }
+                    return {node, node->value->list.size()};
+                break;
+                case N_OBJECT:
+                    for (unsigned long i = 0; i < keys().size(); i++) {
+                        if (cmp(tmp.node, node->value->object[keys()[i]])) {
+                            return {node, i};
+                        }
+                    }
+                    return {node, keys().size()};
+                break;
+            }
+            std::cerr << "cannot find value in string\n";
+            exit(1);
+        }
+
         operator Json();
 
     private:
@@ -180,6 +247,8 @@ public:
     JsonValue operator[](unsigned int index);
 
     JsonValue operator[](std::string key);
+
+    bool operator==(Json other);
 
     template<typename type>
     type get() {
@@ -207,12 +276,7 @@ public:
 
     template<typename type>
     void push_back(type v) {
-        if (node->type != N_LIST) {
-            std::cerr << "cannot append item to non list\n";
-            exit(1);
-        }
-        createClass tmp(v);
-        node->value->list.push_back(tmp.node);
+        json_value.push_back(v);
     }
 
     void insert(unsigned int index, char c);
@@ -223,29 +287,14 @@ public:
 
     template<typename type>
     void insert(unsigned int index, type value) {
-        switch (node->type) {
-            case N_LIST: {
-                createClass tmp(value);
-                std::vector<Node*>::iterator it(&node->value->list[index]);
-                node->value->list.insert(it, tmp.node);
-            }
-            break;
-            default:
-                std::cerr << "cannot insert value\n";
-                exit(1);
-        }
+        json_value.insert(index, value);
     }
 
     bool insert(std::string key, Json json);
 
     template<typename type>
     bool insert(std::string key, type value) {
-        if (node->type != N_OBJECT) {
-            std::cerr << "cannot insert value into object\n";
-            exit(1);
-        }
-        createClass tmp(value);
-        return node->value->object.insert({key, tmp.node}).second;
+        return json_value.insert(key, value);
     }
 
     void erase(unsigned int index);
@@ -253,6 +302,17 @@ public:
     void erase(unsigned int first, unsigned int last);
 
     void erase(std::string key);
+
+    void clear();
+
+    bool empty();
+
+    size_t find(char c);
+
+    template<typename type>
+    iterator find(type value) {
+        return json_value.find(value);
+    }
 
     ~Json();
 
@@ -264,6 +324,7 @@ private:
     unsigned int i = 0;
     static unsigned int g_id;
     Node* node;
+    JsonValue json_value;
 
     enum TokenType {
         T_COPEN,
@@ -329,7 +390,11 @@ private:
 
         operator double();
 
+        operator long();
+
         operator int();
+
+        operator short();
 
         operator std::string();
 
@@ -371,7 +436,11 @@ private:
 
         createClass(bool b);
 
+        createClass(long number);
+
         createClass(int number);
+
+        createClass(short number);
 
         createClass(double number);
 
@@ -417,6 +486,10 @@ private:
     static std::string str(Node* node, std::string indent);
 
     static Node* copy(Node* node);
+
+    static std::vector<std::string> keys(Node* node);
+
+    static bool cmp(Node* n1, Node* n2);
 
     Json(Node* node);
 };

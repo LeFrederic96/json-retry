@@ -8,13 +8,13 @@
 char me::Json::hexChars[23] = "0123456789abcdefABCDEF";
 unsigned int me::Json::g_id = 0;
 
-me::Json::iterator::iterator(Node* node, unsigned int index) : node(node), index(index) {
+me::Json::iterator::iterator(Node* node, unsigned long index) : node(node), _index(index) {
     bool b = false;
     if (node->type == N_OBJECT) {
         b = true;
         for (std::pair<std::string, Node*> n : node->value->object) {
-            key.push_back(n.first);
-            size = key.size();
+            _key.push_back(n.first);
+            size = _key.size();
         }
     } else if (node->type == N_LIST) {
         b = true;
@@ -34,7 +34,7 @@ me::Json::iterator::iterator(Node* node, unsigned int index) : node(node), index
 }
 
 bool me::Json::iterator::operator==(iterator& other) {
-    return (node==other.node && index==other.index);
+    return (node==other.node && _index==other._index);
 }
 
 bool me::Json::iterator::operator!=(iterator& other) {
@@ -42,33 +42,57 @@ bool me::Json::iterator::operator!=(iterator& other) {
 }
 
 void me::Json::iterator::operator++() {
-    if (index >= size) {
+    if (_index >= size) {
         std::cerr << "cannot increment end iterator\n";
         exit(1);
     }
-    index++;
+    _index++;
 }
 
 void me::Json::iterator::operator--() {
-    if (index == 0) {
+    if (_index == 0) {
         std::cerr << "cannot decrement begin iterator\n";
         exit(1);
     }
-    index--;
+    _index--;
 }
 
 me::Json::iterator::iteratorGetClass me::Json::iterator::operator*() {
-    return {node, &key, size, index};
+    return {node, &_key, size, _index};
 }
 
-me::Json::iterator::iteratorGetClass::iteratorGetClass(Node* node, std::vector<std::string>* key, unsigned int size, unsigned int index) : node(node), key(key), size(size), index(index) {}
+size_t me::Json::iterator::index() {
+    if (_index >= size) {
+        std::cerr << "cannot get index from iterator\n";
+        exit(1);
+    }
+    if (node->type != N_STRING && node->type != N_LIST) {
+        std::cerr << "cannot get index from iterator\n";
+        exit(1);
+    }
+    return _index;
+}
+
+std::string me::Json::iterator::key() {
+    if (_index >= size) {
+        std::cerr << "cannot get key from iterator\n";
+        exit(1);
+    }
+    if (node->type != N_OBJECT) {
+        std::cerr << "cannot get key from iterator\n";
+        exit(1);
+    }
+    return _key[_index];
+}
+
+me::Json::iterator::iteratorGetClass::iteratorGetClass(Node* node, std::vector<std::string>* key, unsigned long size, unsigned long index) : node(node), key(key), size(size), index(index) {}
 
 me::Json::iterator::iteratorGetClass::operator char() {
     if (node->type != N_STRING) {
         std::cerr << "cannot get char from non string iterator\n";
         exit(1);
     }
-    if (index == size) {
+    if (index >= size) {
         std::cerr << "cannot get char from end iterator\n";
         exit(1);
     }
@@ -80,7 +104,7 @@ me::Json::iterator::iteratorGetClass::operator Json() {
         std::cerr << "cannot get Json from non list iterator\n";
         exit(1);
     }
-    if (index == size) {
+    if (index >= size) {
         std::cerr << "cannot get Json from end iterator\n";
         exit(1);
     }
@@ -92,7 +116,7 @@ me::Json::iterator::iteratorGetClass::operator std::pair<std::string, Json>() {
         std::cerr << "cannot get pair from non object iterator\n";
         exit(1);
     }
-    if (index == size) {
+    if (index >= size) {
         std::cerr << "cannot get pair from end iterator\n";
         exit(1);
     }
@@ -100,7 +124,13 @@ me::Json::iterator::iteratorGetClass::operator std::pair<std::string, Json>() {
     return {(*key)[index], tmp};
 }
 
+me::Json::JsonValue::JsonValue() {}
+
 me::Json::JsonValue::JsonValue(Node* n) {
+    node = n;
+}
+
+void me::Json::JsonValue::set(Node* n) {
     node = n;
 }
 
@@ -118,6 +148,10 @@ me::Json::JsonValue me::Json::JsonValue::operator[](std::string key) {
         exit(1);
     }
     return {node->value->object[key]};
+}
+
+bool me::Json::JsonValue::operator==(Json other) {
+    return cmp(node, other.node);
 }
 
 std::string me::Json::JsonValue::str() {
@@ -156,15 +190,7 @@ unsigned int me::Json::JsonValue::size() {
 }
 
 std::vector<std::string> me::Json::JsonValue::keys() {
-    if (node->type != N_OBJECT) {
-        std::cerr << "keys is only available for objects\n";
-        exit(1);
-    }
-    std::vector<std::string> ret;
-    for (std::pair<std::string, Node*> n : node->value->object) {
-        ret.push_back(n.first);
-    }
-    return ret;
+    return Json::keys(node);
 }
 
 me::Json::iterator me::Json::JsonValue::begin() {
@@ -312,6 +338,41 @@ void me::Json::JsonValue::erase(std::string key) {
     node->value->object.erase(key);
 }
 
+void me::Json::JsonValue::clear() {
+    switch (node->type) {
+        case N_STRING:
+            node->value->str.clear();
+        break;
+        case N_LIST:
+            for (Node* n : node->value->list) {
+                n->~Node();
+            }
+            node->value->list.clear();
+        break;
+        case N_OBJECT:
+            for (std::pair<std::string, Node*> n : node->value->object) {
+                n.second->~Node();
+            }
+            node->value->object.clear();
+        break;
+        default:
+            std::cerr << "cannot clear value, invalid type\n";
+            exit(1);
+    }
+}
+
+bool me::Json::JsonValue::empty() {
+    return size()==0;
+}
+
+size_t me::Json::JsonValue::find(char c) {
+    if (node->type != N_STRING) {
+        std::cerr << "cannot find char in non string\n";
+        exit(1);
+    }
+    return node->value->str.find(c);
+}
+
 me::Json::JsonValue::operator Json() {
     return node;
 }
@@ -322,11 +383,13 @@ me::Json::Json(std::string str) {
     this->tokens = &tokens;
     node = parse();
     node->save = true;
+    json_value.set(node);
 }
 
 me::Json::Json(Json& other) {
     node = copy(other.node);
     node->save = true;
+    json_value.set(node);
 }
 
 std::string me::Json::str() {
@@ -334,29 +397,19 @@ std::string me::Json::str() {
 }
 
 me::Json::JsonValue me::Json::operator[](unsigned int index) {
-    if (node->type != N_LIST) {
-        std::cerr << "operator[] with int is only available for lists\n";
-        exit(1);
-    }
-    return {node->value->list[index]};
+    return json_value[index];
 }
 
 me::Json::JsonValue me::Json::operator[](std::string key) {
-    if (node->type != N_OBJECT) {
-        std::cerr << "operator[] with std::string is only available for objects\n";
-        exit(1);
-    }
-    return {node->value->object[key]};
+    return json_value[key];
+}
+
+bool me::Json::operator==(Json other) {
+    return cmp(node, other.node);
 }
 
 void me::Json::operator=(Json json) {
-    Node* tmp = copy(json.node);
-    node->destroy();
-    node->destroyed = false;
-    node->save = true;
-    node->type = tmp->type;
-    node->value = tmp->value;
-    free(tmp);
+    json_value = json;
 }
 
 me::Json::Type me::Json::type() {
@@ -364,32 +417,11 @@ me::Json::Type me::Json::type() {
 }
 
 unsigned int me::Json::size() {
-    switch (node->type) {
-        case N_STRING:
-            return node->value->str.size();
-        break;
-        case N_LIST:
-            return node->value->list.size();
-        break;
-        case N_OBJECT:
-            return node->value->object.size();
-        break;
-        default:
-            std::cerr << "size is not available for bool and number\n";
-            exit(1);
-    }
+    return json_value.size();
 }
 
 std::vector<std::string> me::Json::keys() {
-    if (node->type != N_OBJECT) {
-        std::cerr << "keys is only available for objects\n";
-        exit(1);
-    }
-    std::vector<std::string> ret;
-    for (std::pair<std::string, Node*> n : node->value->object) {
-        ret.push_back(n.first);
-    }
-    return ret;
+    return keys(node);
 }
 
 me::Json::iterator me::Json::begin() {
@@ -401,140 +433,55 @@ me::Json::iterator me::Json::end() {
 }
 
 void me::Json::push_back(char c) {
-    if (node->type != N_STRING) {
-        std::cerr << "cannot append char to non string\n";
-        exit(1);
-    }
-    node->value->str.push_back(c);
+    json_value.push_back(c);
 }
 
 void me::Json::push_back(std::string str) {
-    if (node->type != N_STRING) {
-        std::cerr << "cannot append string to non string\n";
-        exit(1);
-    }
-    for (char c : str) {
-        node->value->str.push_back(c);
-    }
+    json_value.push_back(str);
 }
 
 void me::Json::push_back(Json json) {
-    if (node->type != N_LIST) {
-        std::cerr << "cannot append item to non list\n";
-        exit(1);
-    }
-    node->value->list.push_back(copy(json.node));
+    json_value.push_back(json);
 }
 
 void me::Json::insert(unsigned int index, char c) {
-    if (node->type != N_STRING) {
-        std::cerr << "cannot insert char into non string\n";
-        exit(1);
-    }
-    std::string tmp;
-    tmp.push_back(c);
-    node->value->str.insert(index, tmp);
+    json_value.insert(index, c);
 }
 
 void me::Json::insert(unsigned int index, std::string str) {
-    switch (node->type) {
-        case N_STRING:
-            node->value->str.insert(index, str);
-        break;
-        case N_LIST: {
-            createClass tmp(str);
-            std::vector<Node*>::iterator it(&node->value->list[index]);
-            node->value->list.insert(it, tmp.node);
-        }
-        break;
-        default:
-            std::cerr << "cannot insert string\n";
-            exit(1);
-    }
+    json_value.insert(index, str);
 }
 
 void me::Json::insert(unsigned int index, Json json) {
-    switch (node->type) {
-        case N_LIST: {
-            std::vector<Node*>::iterator tmp(&node->value->list[index]);
-            node->value->list.insert(tmp, copy(json.node));
-        }
-        break;
-        default:
-            std::cerr << "cannot inset json\n";
-            exit(1);
-    }
+    json_value.insert(index, json);
 }
 
 bool me::Json::insert(std::string key, Json json) {
-    if (node->type != N_OBJECT) {
-        std::cerr << "cannot insert Json into object\n";
-        exit(1);
-    }
-    return node->value->object.insert({key, copy(json.node)}).second;
+    return json_value.insert(key, json);
 }
 
 void me::Json::erase(unsigned int index) {
-    switch (node->type) {
-        case N_STRING:
-            if (index >= node->value->str.size()) {
-                std::cerr << "cannot erase char, index out of bounds\n";
-                exit(1);
-            }
-            node->value->str.erase(index, 1);
-        break;
-        case N_LIST: {
-            if (index >= node->value->list.size()) {
-                std::cerr << "cannot erase value, index out of bounds\n";
-                exit(1);
-            }
-            node->value->list[index]->~Node();
-            std::vector<Node*>::iterator tmp(&node->value->list[index]);
-            node->value->list.erase(tmp);
-        }
-        break;
-        default:
-            std::cerr << "cannot erase value, invalid type\n";
-            exit(1);
-    }
+    json_value.erase(index);
 }
 
 void me::Json::erase(unsigned int first, unsigned int last) {
-    switch (node->type) {
-        case N_STRING:
-            if (first >= node->value->str.size() || last > node->value->str.size() || first >= last) {
-                std::cerr << "cannot erase chars, indecies invalid\n";
-                exit(1);
-            }
-            node->value->str.erase(first, last-first);
-        break;
-        case N_LIST: {
-            if (first >= node->value->list.size() || last > node->value->list.size() || first >= last) {
-                std::cerr << "cannot erase value, indecies invalid\n";
-                exit(1);
-            }
-            delete node->value->list[first];
-            std::vector<Node*>::iterator tmp(&node->value->list[first]);
-            node->value->list.erase(tmp);
-        }
-        break;
-        default:
-            std::cerr << "cannot erase value, invalid type\n";
-            exit(1);
-    }
+    json_value.erase(first, last);
 }
 
 void me::Json::erase(std::string key) {
-    if (node->type != N_OBJECT) {
-        std::cerr << "cannot erase value, from non object\n";
-        exit(1);
-    }
-    if (node->value->object.find(key) == node->value->object.end()) {
-        std::cerr << "cannot erase value, invalid key\n";
-        exit(1);
-    }
-    delete node->value->object[key];
-    node->value->object.erase(key);
+    json_value.erase(key);
+}
+
+void me::Json::clear() {
+    json_value.clear();
+}
+
+bool me::Json::empty() {
+    return size()==0;
+}
+
+size_t me::Json::find(char c) {
+    return json_value.find(c);
 }
 
 me::Json::~Json() {
@@ -611,12 +558,20 @@ me::Json::getClass::operator double() {
     return node->value->number;
 }
 
-me::Json::getClass::operator int() {
+me::Json::getClass::operator long() {
     if (node->type != N_NUMBER) {
         std::cerr << "Cannot get integer from non number type\n";
         exit(1);
     }
     return node->value->number;
+}
+
+me::Json::getClass::operator int() {
+    return operator long();
+}
+
+me::Json::getClass::operator short() {
+    return operator long();
 }
 
 me::Json::getClass::operator std::string() {
@@ -631,7 +586,15 @@ me::Json::createClass::createClass(bool b) {
     node = makeNode(N_BOOL, {b});
 }
 
+me::Json::createClass::createClass(long number) {
+    node = makeNode(N_NUMBER, {(double)number});
+}
+
 me::Json::createClass::createClass(int number) {
+    node = makeNode(N_NUMBER, {(double)number});
+}
+
+me::Json::createClass::createClass(short number) {
     node = makeNode(N_NUMBER, {(double)number});
 }
 
@@ -1098,6 +1061,60 @@ me::Json::Node* me::Json::copy(Node* node) {
     exit(1);
 }
 
+std::vector<std::string> me::Json::keys(Node* node) {
+    if (node->type != N_OBJECT) {
+        std::cerr << "keys is only available for objects\n";
+        exit(1);
+    }
+    std::vector<std::string> ret;
+    for (std::pair<std::string, Node*> n : node->value->object) {
+        ret.push_back(n.first);
+    }
+    return ret;
+}
+
+bool me::Json::cmp(Node* n1, Node* n2) {
+    if (n1->type != n2->type) {
+        return false;
+    }
+    switch (n1->type) {
+        case N_BOOL:
+            return n1->value->b == n2->value->b;
+        break;
+        case N_NUMBER:
+            return n1->value->number == n2->value->number;
+        break;
+        case N_STRING:
+            return n1->value->str == n2->value->str;
+        break;
+        case N_LIST:
+            if (n1->value->list.size() != n2->value->list.size()) {
+                return false;
+            }
+            for (int i = 0; i < n1->value->list.size(); i++) {
+                if (!cmp(n1->value->list[i], n2->value->list[i])) {
+                    return false;
+                }
+            }
+            return true;
+        break;
+        case N_OBJECT:
+            if (keys(n1) != keys(n2)) {
+                return false;
+            }
+            for (std::string key : keys(n1)) {
+                if (!cmp(n1->value->object[key], n2->value->object[key])) {
+                    return false;
+                }
+            }
+            return true;
+        break;
+    }
+    std::cerr << "Unreachable: me::Json::cmp\n";
+    exit(1);
+}
+
 me::Json::Json(Node* node) : node(node) {
     node->save = true;
+    json_value.set(node);
 }
