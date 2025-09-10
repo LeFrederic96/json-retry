@@ -970,7 +970,7 @@ unsigned long me::Json::parse() {
             std::map<std::string, unsigned long> object;
             if (tokens[i].type == T_CCLOSE) {
                 i++;
-                s_data.insert({s_id,{ N_OBJECT, {object}}});
+                s_data.insert({s_id,{N_OBJECT, {object}}});
                 return s_id++;
             }
             std::string str = match(T_STRING, "string").str;
