@@ -1070,24 +1070,18 @@ unsigned long me::Json::copy(unsigned long id) {
 void me::Json::destroy(unsigned long id) {
     Node& node = data[id];
     switch (node.type) {
-        case N_BOOL:
-        case N_NUMBER:
-        case N_STRING:
-            data.erase(id);
-        break;
         case N_LIST:
             for (unsigned long n : node.value.list) {
                 destroy(n);
-                data.erase(n);
             }
         break;
         case N_OBJECT:
             for (std::pair<std::string, unsigned long> n : node.value.object) {
                 destroy(n.second);
-                data.erase(n.second);
             }
         break;
     }
+    data.erase(id);
 }
 
 bool me::Json::cmp(unsigned long id1, unsigned long id2) {
