@@ -244,6 +244,8 @@ public:
         void destroy();
     };
 
+    Json();
+
     Json(std::string str);
 
     Json(Json& other);
@@ -872,6 +874,12 @@ bool me::Json::JsonValue::operator!=(JsonValue other) {
 
 void me::Json::JsonValue::destroy() {
     Json::destroy(id);
+}
+
+me::Json::Json() {
+    tokenize("{}");
+    value.set(parse());
+    tokens.clear();
 }
 
 me::Json::Json(std::string str) {

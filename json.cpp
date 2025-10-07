@@ -358,6 +358,12 @@ void me::Json::JsonValue::destroy() {
     Json::destroy(id);
 }
 
+me::Json::Json() {
+    tokenize("{}");
+    value.set(parse());
+    tokens.clear();
+}
+
 me::Json::Json(std::string str) {
     if (str.size() == 0) {
         std::cerr << "cannot create json object from empty string\n";

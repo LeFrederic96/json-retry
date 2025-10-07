@@ -241,6 +241,8 @@ public:
         void destroy();
     };
 
+    Json();
+
     Json(std::string str);
 
     Json(Json& other);
